@@ -2,10 +2,71 @@
 //
 
 #include <iostream>
+#include <vector>
+#include <string>
+
+#include "lodepng.h"
+
+char int_to_ascii(unsigned char &value) {
+	const char lightness_map[66] = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+	return lightness_map[value / 4];
+}
 
 int main()
 {
-    std::cout << "Hello World!\n";
+	std::vector<unsigned char> image; //the raw pixels
+	unsigned int width, height;
+
+	//decode
+	unsigned int error = lodepng::decode(image, width, height, "./heightmap_64.png");
+
+	//if there's an error, display it
+	if (error) {
+		std::cout << "decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
+		return -1;
+	}
+
+	// Create a 2D array to store pixel values
+	unsigned char** pixelValues = new unsigned char* [height];
+	for (int i = 0; i < height; ++i) {
+		pixelValues[i] = new unsigned char[width];
+	}
+
+	// Copy pixel values to the array
+	for (int i = 0; i < height; ++i) {
+		for (int j = 0; j < width; ++j) {
+			// 4 bytes per pixel (RGBA), we poll the R byte - and assume a greyscale image
+			pixelValues[i][j] = image[(i * height + j) * 4];
+			std::cout << int_to_ascii(pixelValues[i][j]) << ' ';
+			
+			// clear image to ensure that the writing is without any interference from the read
+			image[(i * height + j) * 4] = 0;
+			image[(i * height + j) * 4 + 1] = 0;
+			image[(i * height + j) * 4 + 2] = 0;
+			image[(i * height + j) * 4 + 3] = 0;
+		}
+		std::cout << '\n';
+	}
+
+	// write pixel values to PNG vector (RGBA) bytes
+	for (int i = 0; i < height; ++i) {
+		for (int j = 0; j < width; ++j) {
+			// 4 bytes per pixel (RGBA), we poll the R byte - and assume a greyscale image
+			image[(i * height + j) * 4] = pixelValues[i][j];
+			image[(i * height + j) * 4 + 1] = pixelValues[i][j];
+			image[(i * height + j) * 4 + 2] = pixelValues[i][j];
+			image[(i * height + j) * 4 + 3] = 255; // Alpha byte
+		}
+	}
+
+	// Save PNG to disk
+	// Encode the image
+	error = lodepng::encode("out.png", image, width, height);
+
+	// if there's an error, display it
+	if (error) std::cout << "encoder error " << error << ": " << lodepng_error_text(error) << std::endl;
+
+    return 0;
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
