@@ -11,7 +11,7 @@
 
 #define RNG_MARGINS 10		// the number of pixels the droplet placement should be distanced from the edges of the image, at minimum
 
-#define ITERATIONS 10000
+#define ITERATIONS 100000
 #define EVAPORATION 0.005f
 #define INTENSITY 4
 #define S_DR 0.01f
@@ -19,7 +19,7 @@
 #define S_TF 0.0001f
 #define S_TR 0.01f
 #define STARTING_WATER 1.0f
-#define FRICTION_COEFF 0.7f
+#define FRICTION_COEFF 0.5f
 #define GRAVITATIONAL_CONST 9.8f
 
 char int_to_ascii(unsigned char &value) {
@@ -40,7 +40,7 @@ std::pair<float, float> get_tangent(float** heights, unsigned int width, unsigne
 
 float get_acceleration(float height_diff)
 {
-	height_diff = height_diff / 51.0f; // make it a number in the range (0, 5);
+	height_diff = height_diff / 5.0f; // reduce height range to (0, 50)
 	float accel_friction = GRAVITATIONAL_CONST * (1.0f / std::sqrt(1.0f + height_diff * height_diff)) * FRICTION_COEFF;
 	float accel_front = GRAVITATIONAL_CONST * ((height_diff * height_diff) / std::sqrt(1.0f + height_diff * height_diff));
 	
@@ -114,6 +114,7 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 		float transport_capacity = t_r + t_f;
 		
 		carried_soil += detached_soil;
+		heights[point.first][point.second] -= detached_soil;
 
 		auto height_diff = heights[point.first][point.second] - heights[next_point.first][next_point.second];
 		// it does not make sense for the next point to be at a higher position than our current point
@@ -134,10 +135,6 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 			{
 				heights[point.first][point.second] += sedimented_soil;
 				carried_soil -= sedimented_soil;
-			}
-			else
-			{
-				heights[point.first][point.second] -= detached_soil;
 			}
 			velocity += get_acceleration(height_diff);
 			velocity = (velocity < 0.0f) ? 0.0f : velocity; // velocity cannot be negative
@@ -190,7 +187,7 @@ int main()
 	unsigned int width, height;
 
 	//decode
-	unsigned int error = lodepng::decode(image, width, height, "./heightmap_64.png");
+	unsigned int error = lodepng::decode(image, width, height, "./heightmap_128.png");
 
 	//if there's an error, display it
 	if (error) {
