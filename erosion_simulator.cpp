@@ -9,18 +9,20 @@
 
 #include "lodepng.h"
 
-#define RNG_MARGINS 10		// the number of pixels the droplet placement should be distanced from the edges of the image, at minimum
+#define RNG_MARGINS 1		// the number of pixels the droplet placement should be distanced from the edges of the image, at minimum
 
 #define ITERATIONS 100000
-#define EVAPORATION 0.005f
-#define INTENSITY 4
+#define EVAPORATION 0.0025f
+#define INTENSITY 5
 #define S_DR 0.01f
 #define S_DF 0.0005f
 #define S_TF 0.0001f
 #define S_TR 0.01f
 #define STARTING_WATER 1.0f
-#define FRICTION_COEFF 0.5f
+#define FRICTION_COEFF 0.1f
 #define GRAVITATIONAL_CONST 9.8f
+
+#define SOFT_BRUSH true
 
 char int_to_ascii(unsigned char &value) {
 	const char lightness_map[66] = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
@@ -36,6 +38,51 @@ std::pair<float, float> get_tangent(float** heights, unsigned int width, unsigne
 	float top = point.first > 0 ? heights[point.first - 1][point.second] : heights[point.first][point.second];
 
 	return std::make_pair((bottom - top) / 2.0f, (right - left) / 2.0f);
+}
+
+
+void apply_modification(float** heights, unsigned int width, unsigned int height, std::pair<unsigned int, unsigned int> point, float value)
+{
+	unsigned int x = point.first;
+	unsigned int y = point.second;
+	float corner_wieght = 0.15f;
+	float ortho_weight = 0.3f;
+
+#if SOFT_BRUSH
+	if (x + 1 < height)
+	{
+		if (y > 0)
+		{
+			heights[x + 1][y - 1] += value * corner_wieght;
+		}
+		heights[x + 1][y] += value * ortho_weight;
+		if (y + 1 < width)
+		{
+			heights[x + 1][y + 1] += value * corner_wieght;
+		}
+	}
+	if (x > 0)
+	{
+		if (y > 0)
+		{
+			heights[x - 1][y - 1] += value * corner_wieght;
+		}
+		heights[x - 1][y] += value * ortho_weight;
+		if (y + 1 < width)
+		{
+			heights[x - 1][y + 1] += value * corner_wieght;
+		}
+	}
+	if (y > 0)
+	{
+		heights[x][y - 1] += value * ortho_weight;
+	}
+	if (y + 1 < width)
+	{
+		heights[x][y + 1] += value * corner_wieght;
+	}
+#endif
+	heights[x][y] += value;
 }
 
 float get_acceleration(float height_diff)
@@ -114,16 +161,15 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 		float transport_capacity = t_r + t_f;
 		
 		carried_soil += detached_soil;
-		heights[point.first][point.second] -= detached_soil;
-
 		auto height_diff = heights[point.first][point.second] - heights[next_point.first][next_point.second];
+
+		apply_modification(heights, width, height, point, -detached_soil);
 		// it does not make sense for the next point to be at a higher position than our current point
 		if (height_diff < 0)
 		{
-			
 			auto deposited = std::min(-height_diff, carried_soil);
 			carried_soil -= deposited;
-			heights[point.first][point.second] += deposited;
+			apply_modification(heights, width, height, point, deposited);
 			velocity = 0.0f;
 			// we do not update the point location, it could be permanently stuck
 		}
@@ -133,7 +179,7 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 
 			if (sedimented_soil > 0.0f)
 			{
-				heights[point.first][point.second] += sedimented_soil;
+				apply_modification(heights, width, height, point, sedimented_soil);
 				carried_soil -= sedimented_soil;
 			}
 			velocity += get_acceleration(height_diff);
@@ -141,7 +187,6 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 			point = next_point;
 		}
 
-		// heights[point.first][point.second] = 255.0f; // TO MARK
 		water_amount -= EVAPORATION;
 	}
 }
