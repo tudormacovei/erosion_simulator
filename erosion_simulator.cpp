@@ -12,13 +12,15 @@
 #define RNG_MARGINS 10		// the number of pixels the droplet placement should be distanced from the edges of the image, at minimum
 
 #define ITERATIONS 10000
-#define EVAPORATION 0.002f
+#define EVAPORATION 0.005f
 #define INTENSITY 4
 #define S_DR 0.01f
 #define S_DF 0.0005f
 #define S_TF 0.0001f
 #define S_TR 0.01f
 #define STARTING_WATER 1.0f
+#define FRICTION_COEFF 0.7f
+#define GRAVITATIONAL_CONST 9.8f
 
 char int_to_ascii(unsigned char &value) {
 	const char lightness_map[66] = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
@@ -34,6 +36,15 @@ std::pair<float, float> get_tangent(float** heights, unsigned int width, unsigne
 	float top = point.first > 0 ? heights[point.first - 1][point.second] : heights[point.first][point.second];
 
 	return std::make_pair((bottom - top) / 2.0f, (right - left) / 2.0f);
+}
+
+float get_acceleration(float height_diff)
+{
+	height_diff = height_diff / 51.0f; // make it a number in the range (0, 5);
+	float accel_friction = GRAVITATIONAL_CONST * (1.0f / std::sqrt(1.0f + height_diff * height_diff)) * FRICTION_COEFF;
+	float accel_front = GRAVITATIONAL_CONST * ((height_diff * height_diff) / std::sqrt(1.0f + height_diff * height_diff));
+	
+	return (accel_front - accel_friction);
 }
 
 // Performs one erosion step by simulating the erosion of one 'droplet'
@@ -104,28 +115,32 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 		
 		carried_soil += detached_soil;
 
+		auto height_diff = heights[point.first][point.second] - heights[next_point.first][next_point.second];
 		// it does not make sense for the next point to be at a higher position than our current point
-		if (heights[next_point.first][next_point.second] > heights[point.first][point.second])
+		if (height_diff < 0)
 		{
-			auto diff = heights[next_point.first][next_point.second] - heights[point.first][point.second];
-			auto deposited = std::min(diff, carried_soil);
+			
+			auto deposited = std::min(-height_diff, carried_soil);
 			carried_soil -= deposited;
+			heights[point.first][point.second] += deposited;
 			velocity = 0.0f;
 			// we do not update the point location, it could be permanently stuck
 		}
 		else
 		{
 			float sedimented_soil = std::max(carried_soil - transport_capacity, 0.0f);
-			float eroded_soil = detached_soil - sedimented_soil;
 
 			if (sedimented_soil > 0.0f)
 			{
 				heights[point.first][point.second] += sedimented_soil;
+				carried_soil -= sedimented_soil;
 			}
 			else
 			{
-				heights[point.first][point.second] -= eroded_soil;
+				heights[point.first][point.second] -= detached_soil;
 			}
+			velocity += get_acceleration(height_diff);
+			velocity = (velocity < 0.0f) ? 0.0f : velocity; // velocity cannot be negative
 			point = next_point;
 		}
 
