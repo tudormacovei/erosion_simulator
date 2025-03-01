@@ -11,6 +11,16 @@ add_library(lodepng lodepng.cpp)
 
 target_link_libraries(${PROJECT_NAME} lodepng)
 
+# Automatically create a unit test for each .png file in the TestData directory
+set(test_data_dir "${CMAKE_SOURCE_DIR}/TestData")
+set(test_results_dir "${CMAKE_SOURCE_DIR}/TestResults")
+FILE(GLOB input_list "${test_data_dir}/*.png")
+
 enable_testing()
-add_test(NAME first_test COMMAND erosion_sim ${CMAKE_SOURCE_DIR}/heightmap_64.png ${CMAKE_SOURCE_DIR}/out_64.png)
-add_test(NAME second_test COMMAND erosion_sim ${CMAKE_SOURCE_DIR}/heightmap_128.png ${CMAKE_SOURCE_DIR}/out_128.png)    
+foreach(input_name ${input_list})
+    string(REGEX REPLACE "${test_data_dir}/"
+       "" output_name
+       "${input_name}")
+    add_test(NAME "test_${output_name}" COMMAND erosion_sim "${input_name}" "${test_results_dir}/${output_name}")
+endforeach()
+  
