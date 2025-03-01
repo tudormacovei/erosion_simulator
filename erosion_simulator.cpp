@@ -226,13 +226,25 @@ void erode_image(unsigned char** pixels, unsigned int width, unsigned int height
 	}
 }
 
-int main()
+int main(int argc, char **argv)
 {
 	std::vector<unsigned char> image; //the raw pixels
 	unsigned int width, height;
 
+	if (argc != 3)
+	{
+		std::cout << "Incorrect number of arguments given! Expected 2.";
+		return 1;
+	}
+	char input_file_name[256];
+	char output_file_name[256];
+	std::strncpy(input_file_name, argv[1], 255);
+	input_file_name[255] = NULL;
+	std::strncpy(output_file_name, argv[2], 255);
+	output_file_name[255] = NULL;
+
 	//decode
-	unsigned int error = lodepng::decode(image, width, height, "./../../heightmap_128.png");
+	unsigned int error = lodepng::decode(image, width, height, input_file_name);
 
 	//if there's an error, display it
 	if (error) {
@@ -277,21 +289,10 @@ int main()
 
 	// Save PNG to disk
 	// Encode the image
-	error = lodepng::encode("out.png", image, width, height);
+	error = lodepng::encode(output_file_name, image, width, height);
 
 	// if there's an error, display it
 	if (error) std::cout << "encoder error " << error << ": " << lodepng_error_text(error) << std::endl;
 
     return 0;
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
