@@ -232,7 +232,7 @@ int main()
 	unsigned int width, height;
 
 	//decode
-	unsigned int error = lodepng::decode(image, width, height, "./heightmap_128.png");
+	unsigned int error = lodepng::decode(image, width, height, "./../../heightmap_128.png");
 
 	//if there's an error, display it
 	if (error) {
