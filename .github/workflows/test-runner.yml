@@ -46,3 +46,4 @@ jobs:
       with:
         commit_message: Add test erosion result images
         file_pattern: '*.png'
+        add_options: '--all --verbose --dry-run'
