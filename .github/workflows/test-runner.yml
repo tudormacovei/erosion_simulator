@@ -1,5 +1,5 @@
 name: test-runner
-run-name: run-name: ${{ github.actor }} is running all CTests 🚀
+run-name: ${{ github.actor }} is running all CTests 🚀
 
 on:
   push:
