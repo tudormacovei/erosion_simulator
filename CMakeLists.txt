@@ -13,7 +13,7 @@ target_link_libraries(${PROJECT_NAME} lodepng)
 
 # Automatically create a unit test for each .png file in the TestData directory
 set(test_data_dir "${CMAKE_SOURCE_DIR}/TestData")
-set(test_results_dir "${CMAKE_SOURCE_DIR}/TestResults")
+set(test_results_dir "${CMAKE_SOURCE_DIR}/TestOutputs")
 FILE(GLOB input_list "${test_data_dir}/*.png")
 
 enable_testing()
