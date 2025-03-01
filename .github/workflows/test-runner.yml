@@ -2,9 +2,9 @@ name: test-runner
 
 on:
   push:
-    branches: [ $default-branch ]
+    branches: '**'
   pull_request:
-    branches: [ $default-branch ]
+    branches: '**'
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
