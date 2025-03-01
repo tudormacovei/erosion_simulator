@@ -238,10 +238,10 @@ int main(int argc, char **argv)
 	}
 	char input_file_name[256];
 	char output_file_name[256];
-	std::strncpy(input_file_name, argv[1], 255);
-	input_file_name[255] = NULL;
-	std::strncpy(output_file_name, argv[2], 255);
-	output_file_name[255] = NULL;
+	strncpy(input_file_name, argv[1], 255);
+	input_file_name[255] = '\0';
+	strncpy(output_file_name, argv[2], 255);
+	output_file_name[255] = '\0';
 
 	//decode
 	unsigned int error = lodepng::decode(image, width, height, input_file_name);
