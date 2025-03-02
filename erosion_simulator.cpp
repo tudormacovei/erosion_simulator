@@ -12,8 +12,8 @@
 #define RNG_MARGINS 1		// the number of pixels the droplet placement should be distanced from the edges of the image, at minimum
 
 #define ITERATIONS 100000
-#define EVAPORATION 0.0025f
-#define INTENSITY 5
+#define EVAPORATION 0.005f
+#define INTENSITY 6
 #define S_DR 0.01f
 #define S_DF 0.0005f
 #define S_TF 0.0001f
@@ -23,11 +23,6 @@
 #define GRAVITATIONAL_CONST 9.8f
 
 #define SOFT_BRUSH true
-
-char int_to_ascii(unsigned char &value) {
-	const char lightness_map[66] = "`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
-	return lightness_map[value / 4];
-}
 
 // Gets the tanget at the given point, with padding at the edges by copying the point's height
 std::pair<float, float> get_tangent(float** heights, unsigned int width, unsigned int height, std::pair<unsigned int, unsigned int> point)
@@ -39,7 +34,6 @@ std::pair<float, float> get_tangent(float** heights, unsigned int width, unsigne
 
 	return std::make_pair((bottom - top) / 2.0f, (right - left) / 2.0f);
 }
-
 
 void apply_modification(float** heights, unsigned int width, unsigned int height, std::pair<unsigned int, unsigned int> point, float value)
 {
@@ -79,7 +73,7 @@ void apply_modification(float** heights, unsigned int width, unsigned int height
 	}
 	if (y + 1 < width)
 	{
-		heights[x][y + 1] += value * corner_wieght;
+		heights[x][y + 1] += value * ortho_weight;
 	}
 #endif
 	heights[x][y] += value;
@@ -113,7 +107,7 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 		direction = get_tangent(heights, width, height, point);
 
 		// if tangent is close to 0, choose random direction
-		if (std::abs(direction.first) <= 0.1f || std::abs(direction.second) <= 0.1f)
+		if (std::abs(direction.first) <= 0.1f && std::abs(direction.second) <= 0.1f)
 		{
 			direction.first = random_float(gen);
 			direction.second = random_float(gen);
@@ -121,7 +115,6 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 
 		float slope;
 		// based on direction, choose next point and compute slope
-		// TODO: HANDLE 'pits'
 		if (std::abs(direction.first) > std::abs(direction.second))
 		{
 			if (direction.first > 0.0f) // the slope is pointing to the north
@@ -160,21 +153,32 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 		float detached_soil = d_r + d_f;
 		float transport_capacity = t_r + t_f;
 		
-		carried_soil += detached_soil;
 		auto height_diff = heights[point.first][point.second] - heights[next_point.first][next_point.second];
-
-		apply_modification(heights, width, height, point, -detached_soil);
+		
 		// it does not make sense for the next point to be at a higher position than our current point
-		if (height_diff < 0)
+		if (height_diff < 0.0f)
 		{
-			auto deposited = std::min(-height_diff, carried_soil);
+			float deposited;
+			if (carried_soil < -height_diff / 2.8f)
+			{
+				deposited = carried_soil;
+			}
+			else
+			{
+				deposited = -height_diff;
+			}
 			carried_soil -= deposited;
-			apply_modification(heights, width, height, point, deposited);
+			apply_modification(heights, width, height, point, deposited * 0.75f);
+			heights[point.first][point.second] += deposited * 2.8f * 0.25f;
+
 			velocity = 0.0f;
-			// we do not update the point location, it could be permanently stuck
+			// we do NOT update the point location, it could be permanently stuck
 		}
 		else
 		{
+			apply_modification(heights, width, height, point, -detached_soil);
+			carried_soil += detached_soil;
+
 			float sedimented_soil = std::max(carried_soil - transport_capacity, 0.0f);
 
 			if (sedimented_soil > 0.0f)
@@ -182,7 +186,6 @@ void erosion_step(float** heights, unsigned int width, unsigned int height, std:
 				apply_modification(heights, width, height, point, sedimented_soil);
 				carried_soil -= sedimented_soil;
 			}
-			velocity += get_acceleration(height_diff);
 			velocity = (velocity < 0.0f) ? 0.0f : velocity; // velocity cannot be negative
 			point = next_point;
 		}
@@ -211,7 +214,7 @@ void erode_image(unsigned char** pixels, unsigned int width, unsigned int height
 	std::uniform_int_distribution<unsigned> distrib_width(RNG_MARGINS, width - RNG_MARGINS);
 	std::uniform_int_distribution<unsigned> distrib_height(RNG_MARGINS, height - RNG_MARGINS);
 
-	for (int i = 0; i < ITERATIONS; i++)
+	for (long long i = 0; i < ITERATIONS; i++)
 	{
 		erosion_step(heights, width, height, std::make_pair(distrib_width(gen), distrib_height(gen)));
 	}
@@ -238,10 +241,10 @@ int main(int argc, char **argv)
 	}
 	char input_file_name[256];
 	char output_file_name[256];
-	std::strncpy(input_file_name, argv[1], 255);
-	input_file_name[255] = NULL;
-	std::strncpy(output_file_name, argv[2], 255);
-	output_file_name[255] = NULL;
+	strncpy(input_file_name, argv[1], 255);
+	input_file_name[255] = '\0';
+	strncpy(output_file_name, argv[2], 255);
+	output_file_name[255] = '\0';
 
 	//decode
 	unsigned int error = lodepng::decode(image, width, height, input_file_name);
@@ -259,8 +262,8 @@ int main(int argc, char **argv)
 	}
 
 	// Copy pixel values to the array
-	for (int i = 0; i < height; ++i) {
-		for (int j = 0; j < width; ++j) {
+	for (long long i = 0; i < height; ++i) {
+		for (long long j = 0; j < width; ++j) {
 			// 4 bytes per pixel (RGBA), we poll the R byte - and assume a greyscale image
 			pixels[i][j] = image[(i * height + j) * 4];
 			//std::cout << int_to_ascii(pixels[i][j]) << ' ';
@@ -277,8 +280,8 @@ int main(int argc, char **argv)
 	erode_image(pixels, width, height);
 
 	// write pixel values to PNG vector (RGBA) bytes
-	for (int i = 0; i < height; ++i) {
-		for (int j = 0; j < width; ++j) {
+	for (long long i = 0; i < height; ++i) {
+		for (long long j = 0; j < width; ++j) {
 			// 4 bytes per pixel (RGBA), we poll the R byte - and assume a greyscale image
 			image[(i * height + j) * 4] = pixels[i][j];
 			image[(i * height + j) * 4 + 1] = pixels[i][j];
